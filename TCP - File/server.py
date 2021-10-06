@@ -10,10 +10,12 @@ FORMAT = "utf-8"
 def main():
     # START TCP SOCKET SERVER
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("START SERVER")
-
+    # REUSE SERVER AFTER CLOSING
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # BIND IP & PORT to SERVER
     server.bind(ADDR)
+
+    print("START SERVER")
 
     # Server is  waiting for the client to connected
     server.listen()
@@ -31,7 +33,7 @@ def main():
         conn.send("REQUEST RECEIVED".encode(FORMAT))
 
         # Receiving the file data from the client
-        print("RECEIVING FILE...")
+        print("SENDING FILE...")
         while True:
             data = conn.recv(SIZE)
             if not data:
@@ -45,6 +47,16 @@ def main():
         # Closing the connection from the client
         conn.close()
         print(f"{addr} DISCONNECTED.")
+
+        # Close Server
+        closeServer(server)
+
+
+def closeServer(server):
+    server.shutdown(socket.SHUT_RDWR)
+    server.close()
+    print("SERVER CLOSED")
+    pass
 
 
 if __name__ == "__main__":
