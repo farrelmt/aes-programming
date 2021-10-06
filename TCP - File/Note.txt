@@ -1,0 +1,15 @@
+Implementation
+
+- Run Server
+    python server.py
+
+- Run Client
+    python client.py [NAMEFILE] [ENCRYPTION]
+
+    ec :
+    python client file1.txt 1
+
+    ENCRYPTION LIST :
+    1. AES LIBARY
+    2. AES SCRATCH
+    3. ??
