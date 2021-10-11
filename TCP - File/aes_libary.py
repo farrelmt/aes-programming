@@ -296,3 +296,5 @@ class AES:
             currentblock[i:i + 16:4] = column
         # return the value of mixed block
         return currentblock
+
+
