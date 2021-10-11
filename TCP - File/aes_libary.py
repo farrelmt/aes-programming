@@ -64,6 +64,22 @@ class AES:
         self.r_con = [0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36]
 
     # Encryption gogogo
+    def encrypt_ecb(self, data, key):
+        # use 16 byte as block size bcz AES 128
+        blocksize = self.key_size
+        enc_result = b''
+        # Padding so data size can be divided by 16
+        pad = bytes(blocksize - len(data) % blocksize)
+        if len(pad) != 16:
+            data += pad
+            print("aku ngepad")
+        # each 16 byte do AES Encryption
+        for i in range(len(data) // blocksize):
+            plain = data[i * blocksize:i * blocksize + blocksize]
+            enc = self.encrypt(plain, key)
+            enc_result = enc_result + enc
+        return enc_result
+
     def encrypt(self, data, key):
         # Init block data
         datablock = bytearray(16)
@@ -95,19 +111,30 @@ class AES:
         # Add round-key for datablock with key-pointer 10
         datablock = self.sub_bytes(datablock)
         datablock = self.shift_row(datablock)
-        x = (16 * self.round_num)
+        x = (self.key_size * self.round_num)
         datablock = self.add_round(datablock, expanded_key, x)
 
         # fill resultblock with datablock recoded back into data original format
-        for k in range(4):
-            for l in range(4):
-                resultblock[(k * 4) + l] = datablock[(k + (l * 4))]
+        for k in range(self.column_num):
+            for l in range(self.column_num):
+                resultblock[(k * self.column_num) + l] = datablock[(k + (l * self.column_num))]
 
         # return the result as an bytes
         finaldata = bytes(resultblock)
         return finaldata
 
     # Decryption gogogo
+    def decrypt_ecb(self, data, key):
+        # use 16 byte as block size bcz AES 128
+        blocksize = self.key_size
+        dec_result = b''
+        # each 16 byte do AES Decryption
+        for i in range(len(data) // blocksize):
+            ciph = data[i * blocksize:i * blocksize + blocksize]
+            dec = self.decrypt(ciph, key)
+            dec_result = dec_result + dec
+        return dec_result
+
     def decrypt(self, data, key):
         # Init block data
         datablock = bytearray(16)
@@ -123,7 +150,7 @@ class AES:
 
         # round 10
         # Add round-key for datablock with key-pointer 10
-        initpointer = self.round_num
+        initpointer = self.round_num * self.key_size
         datablock = self.add_round(datablock, expanded_key, initpointer)
 
         # round 9-1
@@ -146,9 +173,9 @@ class AES:
         datablock = self.add_round(datablock, expanded_key, x)
 
         # fill resultblock with datablock recoded back into data original format
-        for k in range(4):
-            for l in range(4):
-                resultblock[(k * 4) + l] = datablock[(k + (l * 4))]
+        for k in range(self.column_num):
+            for l in range(self.column_num):
+                resultblock[(k * self.column_num) + l] = datablock[(k + (l * self.column_num))]
 
         # return the result as an bytes
         finaldata = bytes(resultblock)
