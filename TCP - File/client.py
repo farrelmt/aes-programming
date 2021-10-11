@@ -1,5 +1,6 @@
 import socket
 import sys
+from aesLibary import AESLibary
 
 PORT = 5000
 IP = socket.gethostbyname(socket.gethostname())
@@ -32,11 +33,20 @@ def main():
 
     # SEND FILE DATA TO SERVER
     while True:
-        k_bytes = file.read(SIZE)
-        if not k_bytes:
+        data_bytes = file.read()
+        if not data_bytes:
             # if transmiting done
             break
-        client.sendall(k_bytes)
+
+        if int(MODE_ENCRYPTION) == 1:
+            withLibary(client, data_bytes)
+
+        elif int(MODE_ENCRYPTION) == 2:
+            withoutLibary(client, data_bytes)
+
+        else:
+            print("Choose Method Encryption")
+
 
     print("FILE RECEIVED")
 
@@ -46,6 +56,13 @@ def main():
     # DISCONNECT FROM SERVER
     client.close()
 
+def withoutLibary(client, data_bytes):
+    client.sendall(data_bytes)
+
+
+def withLibary(client, data_bytes):
+    data_enc = AESLibary.dataEncrypt(data_bytes)
+    client.sendall(data_enc)
 
 if __name__ == "__main__":
     main()

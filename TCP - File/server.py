@@ -1,4 +1,5 @@
 import socket
+from aesLibary import AESLibary
 
 PORT = 5000
 IP = socket.gethostbyname(socket.gethostname())
@@ -21,11 +22,11 @@ def main():
     server.listen()
     print("SERVER IS LISTENING")
 
-    while True:
-        # Server accepted the connection from the client
-        conn, addr = server.accept()
-        print(f"{addr} CONNECTED")
+    # Server accepted the connection from the client
+    conn, addr = server.accept()
+    print(f"{addr} CONNECTED")
 
+    while True:
         # Server Receiving the filename from the client
         filename = conn.recv(SIZE).decode(FORMAT)
         print("RECEIVING FILE NAME")
@@ -34,12 +35,18 @@ def main():
 
         # Receiving the file data from the client
         print("SENDING FILE...")
+        temp = b''
         while True:
             data = conn.recv(SIZE)
             if not data:
                 # if nothing received
                 break
-            file.write(data)
+
+            temp = temp + data
+
+        data_decrypt = AESLibary.dataDecrypt(temp)
+        file.write(data_decrypt)
+
 
         # Closing the file
         file.close()
@@ -57,7 +64,6 @@ def closeServer(server):
     server.close()
     print("SERVER CLOSED")
     pass
-
 
 if __name__ == "__main__":
     main()

@@ -56,19 +56,21 @@ class AES:
         # column for matrix operation
         self.column_num = 4
         # key size for key expansion in AES-128
-        self.key_num = 4
+        self.key_size = 16
         # round for AES-128
         self.round_num = 10
 
+        # Constant for Round in Key Expansion
         self.r_con = [0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36]
 
     # Encryption gogogo
     def encrypt(self, data, key):
         # Init block data
-        datablock, resultblock = bytearray(16), bytearray(16)
+        datablock = bytearray(16)
+        resultblock = bytearray(16)
 
-        # get the expanded key from the rijndael key schedule:
-        # not done
+        # get the expanded key key scheduler
+        expanded_key = self.key_scheduler(key)
 
         # turn original data into datablock with 16 length
         for i in range(self.column_num):
@@ -82,37 +84,37 @@ class AES:
 
         # round 1-9
         # Substitute-ShiftRow-MixColumn-AddRound
-        # True means its encrypting
         for i in (range(1, self.round_num)):
-            datablock = self.sub_bytes(datablock, True)
-            datablock = self.shift_row(datablock, True)
+            datablock = self.sub_bytes(datablock)
+            datablock = self.shift_row(datablock)
             datablock = self.mix_column(datablock)
             datablock = self.add_round(datablock, expanded_key, 16 * i)
 
         # final round
         # Substitute and Shift
         # Add round-key for datablock with key-pointer 10
-        datablock = self.sub_bytes(datablock, True)
-        datablock = self.shift_rows(datablock, True)
+        datablock = self.sub_bytes(datablock)
+        datablock = self.shift_row(datablock)
         x = (16 * self.round_num)
         datablock = self.add_round(datablock, expanded_key, x)
 
-        # reverse to bytearray from 2d matrix with 4x4 size
+        # fill resultblock with datablock recoded back into data original format
         for k in range(4):
             for l in range(4):
                 resultblock[(k * 4) + l] = datablock[(k + (l * 4))]
 
-        # fill resultblock with datablock recoded back into data original format
+        # return the result as an bytes
         finaldata = bytes(resultblock)
         return finaldata
 
     # Decryption gogogo
     def decrypt(self, data, key):
         # Init block data
-        datablock, resultblock = bytearray(16), bytearray(16)
+        datablock = bytearray(16)
+        resultblock = bytearray(16)
 
-        # get the expanded key from the rijndael key schedule:
-        # not done
+        # get the expanded key key scheduler
+        expanded_key = self.key_scheduler(key)
 
         # turn original data into datablock with 16 length
         for i in range(self.column_num):
@@ -126,11 +128,11 @@ class AES:
 
         # round 9-1
         # ShiftRow-Substitute-AddRound-MixColumn
-        # True means its encrypting
         for i in (range(self.round_num - 1, 0, -1)):
-            datablock = self.shift_row(datablock, True)
-            datablock = self.sub_bytes(datablock, True)
+            datablock = self.inv_shift_row(datablock)
+            datablock = self.inv_sub_bytes(datablock)
             datablock = self.add_round(datablock, expanded_key, 16 * i)
+            # Three times mixcolumn equals to Inverse Matrix => M X M X M = M^-1
             datablock = self.mix_column(datablock)
             datablock = self.mix_column(datablock)
             datablock = self.mix_column(datablock)
@@ -138,8 +140,8 @@ class AES:
         # final round
         # Substitute and Shift
         # Add round-key for datablock with key-pointer 0
-        datablock = self.sub_bytes(datablock, True)
-        datablock = self.shift_rows(datablock, True)
+        datablock = self.inv_sub_bytes(datablock)
+        datablock = self.inv_shift_row(datablock)
         x = 0
         datablock = self.add_round(datablock, expanded_key, x)
 
@@ -152,49 +154,104 @@ class AES:
         finaldata = bytes(resultblock)
         return finaldata
 
+    def key_scheduler(self, key):
+        # expansion key size with n+1 round size
+        key_expanded_size = (self.round_num+1)*self.key_size
+        key_size_loop = self.key_size
+        # fill the init round with the key itself
+        expanded_key = bytearray(key_expanded_size)
+        expanded_key[:len(key)] = key
+        # Set the round for later
+        round = 1
+
+        while key_size_loop < key_expanded_size:
+            # Get the previous Round Key
+            prev_key = expanded_key[key_size_loop - self.column_num:key_size_loop]  # 1
+
+            # rotate word so a,b,c,d => b,c,d,a
+            rotated_key = prev_key[1:] + prev_key[:1]
+            # substitute again from SBox
+            listrotate = [self.s_box[i] for i in rotated_key]
+            rotated_key = bytearray(listrotate)
+            # xor current byte with round constant based on current round
+            rotated_key[0] = rotated_key[0] ^ self.r_con[round]
+
+            # Do xor for each 4 bytes in a round except for first bytes with additional constant round
+            for i in range(4):
+                if i > 0:
+                    rotated_key = expanded_key[key_size_loop - 4:key_size_loop]
+                listkey = [i ^ j for i, j in zip(expanded_key[
+                                                 key_size_loop - self.key_size:key_size_loop - self.key_size + self.column_num],
+                                                 rotated_key)]
+                resultkey = bytearray(listkey)
+                expanded_key[key_size_loop:key_size_loop + self.key_size] = resultkey
+                key_size_loop += 4
+
+            # Go to next round
+            round += 1
+        # Trim the key
+        return expanded_key[:key_expanded_size]
 
     # Add Round Key for Encyrption/Decryption
     def add_round(self, currentblock, expanded_key, keypointer):
         # xor the block with the round key using Generator and Bytearray
-        listkey = [i ^ j for i, j in zip(currentblock, self.get_round_key(expanded_key, keypointer))]
+        round_key = bytearray(16)
+        for i in range(self.column_num):
+            for j in range(self.column_num):
+                round_key[j * self.column_num + i] = expanded_key[keypointer + i * self.column_num + j]
+        listkey = [i ^ j for i, j in zip(currentblock, round_key)]
         resultkey = bytearray(listkey)
         return resultkey
 
-    # Substitute Bytes for Encyrption/Decryption
-    def sub_bytes(self, currentblock, isencrypting):
-        # Check SBOX using Generator and Bytearray
-        if isencrypting:
-            listblock = [self.s_box[i] for i in currentblock]
-            resultblock = bytearray(listblock)
-            return resultblock
-        else:
-            listblock = [self.inv_s_box[i] for i in currentblock]
-            resultblock = bytearray(listblock)
-            return resultblock
+    # Substitute Bytes for Encyrption
+    def sub_bytes(self, currentblock):
+        listblock = [self.s_box[i] for i in currentblock]
+        resultblock = bytearray(listblock)
+        return resultblock
 
-    # Shifting Row for Encyrption/Decryption
-    def shift_row(self, currentblock, isencrypting):
+    # Substitute Bytes for Decryption
+    def inv_sub_bytes(self, currentblock):
+        listblock = [self.inv_s_box[i] for i in currentblock]
+        resultblock = bytearray(listblock)
+        return resultblock
+
+    # Shifting Row for Encyrption
+    def shift_row(self, currentblock):
         # Turn the block into 2d Matrix
         matrix = [bytearray(self.column_num) for i in range(self.column_num)]
         for i in range(self.column_num):
             for j in range(self.column_num):
                 matrix[i][j] = currentblock[(i * self.column_num) + j]
 
-        if isencrypting:
-            # a,b,c,d => b,c,d +a
-            matrix[1] = matrix[1][1:] + matrix[1][:1]
-            # a,b,c,d => c,d + a,b
-            matrix[2] = matrix[2][2:] + matrix[2][:2]
-            # a,b,c,d => d + a,b,c
-            matrix[3] = matrix[3][3:] + matrix[3][:3]
+        # a,b,c,d => b,c,d + a
+        matrix[1] = matrix[1][1:] + matrix[1][:1]
+        # a,b,c,d => c,d + a,b
+        matrix[2] = matrix[2][2:] + matrix[2][:2]
+        # a,b,c,d => d + a,b,c
+        matrix[3] = matrix[3][3:] + matrix[3][:3]
 
-        else:
-            # b,c,d,a => a + b,c,d
-            matrix[1] = matrix[1][-1:] + matrix[1][:-1]
-            # c,d,a,b => a,b + c,d
-            matrix[2] = matrix[2][-2:] + matrix[2][:-2]
-            # d,a,b,c => a,b c + d
-            matrix[3] = matrix[3][-3:] + matrix[3][:-3]
+        currentblock = bytearray(16)
+        # Reverse into the datablock format from 2d Matrix
+        for i in range(self.column_num):
+            for j in range(self.column_num):
+                currentblock[(i + (j * self.column_num))] = matrix[j][i]
+
+        return currentblock
+
+    # Shifting Row for Decryption
+    def inv_shift_row(self, currentblock):
+        # Turn the block into 2d Matrix
+        matrix = [bytearray(self.column_num) for i in range(self.column_num)]
+        for i in range(self.column_num):
+            for j in range(self.column_num):
+                matrix[i][j] = currentblock[(i * self.column_num) + j]
+
+        # b,c,d,a => a + b,c,d
+        matrix[1] = matrix[1][-1:] + matrix[1][:-1]
+        # c,d,a,b => a,b + c,d
+        matrix[2] = matrix[2][-2:] + matrix[2][:-2]
+        # d,a,b,c => a,b c + d
+        matrix[3] = matrix[3][-3:] + matrix[3][:-3]
 
         currentblock = bytearray(16)
         # Reverse into the datablock format from 2d Matrix
@@ -219,34 +276,23 @@ class AES:
         v = self.multiply_by_2(value) ^ value
         return v
 
-    # Mix Column
+    # Mix Column for Encyrption/Decryption
     def mix_column(self, currentblock):
-        # Turn the block into 2d Matrix
-        matrix = [bytearray(self.column_num) for i in range(self.column_num)]
-        resultmatrix = [bytearray(self.column_num) for i in range(self.column_num)]
         for i in range(self.column_num):
-            for j in range(self.column_num):
-                matrix[i][j] = currentblock[(i * self.column_num) + j]
-
-        # Matrix for dot Operation
-        mixmatrix = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]]
-
-        # Dot Matrix Operation
-        for i in range(self.column_num):
-            for j in range(self.column_num):
-                for k in range(self.column_num):
-                    if mixmatrix[i][k] == 2:
-                        resultmatrix[i][j] = self.multiply_by_2(matrix[k][j])
-                    elif mixmatrix[i][k] == 3:
-                        resultmatrix[i][j] = self.multiply_by_3(matrix[k][j])
-                    else:
-                        resultmatrix[i][j] = matrix[k][j]
-
-        currentblock = bytearray(16)
-        # Reverse into the datablock format from 2d Matrix
-        for i in range(self.column_num):
-            for j in range(self.column_num):
-                currentblock[(i + (j * self.column_num))] = resultmatrix[j][i]
-
+            # process by each column with interval 4(self.column_num)
+            # 0,4,8,12 , 1,5,9,13, etc
+            column = currentblock[i:i + 16:self.column_num]
+            # use multiply based on matrix
+            # 2 3 1 1
+            # 1 2 3 1
+            # 1 1 2 3
+            # 3 1 1 2
+            listcollumn = [i for i in column]
+            c = bytearray(listcollumn)
+            column[0] = self.multiply_by_2(c[0]) ^ self.multiply_by_3(c[1]) ^ c[2] ^ c[3]
+            column[1] = c[0] ^ self.multiply_by_2(c[1]) ^ self.multiply_by_3(c[2]) ^ c[3]
+            column[2] = c[0] ^ c[1] ^ self.multiply_by_2(c[2]) ^ self.multiply_by_3(c[3])
+            column[3] = self.multiply_by_3(c[0]) ^ c[1] ^ c[2] ^ self.multiply_by_2(c[3])
+            currentblock[i:i + 16:4] = column
+        # return the value of mixed block
         return currentblock
-
