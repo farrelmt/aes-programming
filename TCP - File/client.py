@@ -1,7 +1,9 @@
 import socket
 import sys
 from aesLibary import AESLibary
+from aes_libary import AES
 
+aes = AES()
 PORT = 5000
 IP = socket.gethostbyname(socket.gethostname())
 ADDR = (IP, PORT)
@@ -57,7 +59,8 @@ def main():
     client.close()
 
 def withoutLibary(client, data_bytes):
-    client.sendall(data_bytes)
+    data_enc = aes.encrypt_ecb(data_bytes,b'lorem ipsum dolo')
+    client.sendall(data_enc)
 
 
 def withLibary(client, data_bytes):

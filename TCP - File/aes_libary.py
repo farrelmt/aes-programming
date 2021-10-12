@@ -133,6 +133,11 @@ class AES:
             ciph = data[i * blocksize:i * blocksize + blocksize]
             dec = self.decrypt(ciph, key)
             dec_result = dec_result + dec
+        # unpadding
+        pad = dec_result[len(dec_result) - 1]
+        if dec_result[len(dec_result)-2] == pad:
+            while dec_result[len(dec_result)-1] == pad:
+                dec_result = dec_result[:-1]
         return dec_result
 
     def decrypt(self, data, key):
