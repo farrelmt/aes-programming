@@ -13,7 +13,7 @@ class AESLibary:
         ciphertext = cipher.encrypt(pad(data, BLOCK_SIZE))
         return ciphertext
 
-    def dataDecrypt(data):
+    def dataDecrypt(data, key):
         cipher = AES.new(key, AES.MODE_ECB)
         plaintext = cipher.decrypt(data)
         return unpad(plaintext, BLOCK_SIZE)

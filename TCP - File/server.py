@@ -1,11 +1,14 @@
 import socket
 from aesLibary import AESLibary
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 PORT = 5000
 IP = socket.gethostbyname(socket.gethostname())
 ADDR = (IP, PORT)
 SIZE = 1024
 FORMAT = "utf-8"
+
 
 
 def main():
@@ -33,8 +36,16 @@ def main():
         file = open(filename, "wb+")
         conn.send("REQUEST RECEIVED".encode(FORMAT))
 
+        # Get The Enc_Session_key
+        enc_session_key = conn.recv(SIZE)
+        private_key = RSA.import_key(open("private.pem").read())
+
+        # Decrypt the session key with the private RSA key
+        cipher_rsa = PKCS1_OAEP.new(private_key)
+        session_key = cipher_rsa.decrypt(enc_session_key)
+
         # Receiving the file data from the client
-        print("SENDING FILE...")
+        print("RECEIVING FILE...")
         temp = b''
         while True:
             data = conn.recv(SIZE)
@@ -44,7 +55,8 @@ def main():
 
             temp = temp + data
 
-        data_decrypt = AESLibary.dataDecrypt(temp)
+        print("DECRYPTING FILE...")
+        data_decrypt = AESLibary.dataDecrypt(temp, session_key)
         file.write(data_decrypt)
 
 
