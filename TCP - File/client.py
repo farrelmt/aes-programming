@@ -1,11 +1,7 @@
 import socket
 import sys
 from aesLibary import AESLibary
-from aes_libary import AES
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 
-aes = AES()
 PORT = 5000
 IP = socket.gethostbyname(socket.gethostname())
 ADDR = (IP, PORT)
@@ -35,15 +31,6 @@ def main():
     msg = client.recv(SIZE).decode(FORMAT)
     print(f"{msg}")
 
-    # Get Receiver Key
-    recipient_key = RSA.import_key(open("receiver.pem").read())
-    session_key = b'lorem ipsum dolo'
-
-    # Encrypt the session key with the public RSA key
-    cipher_rsa = PKCS1_OAEP.new(recipient_key)
-    enc_session_key = cipher_rsa.encrypt(session_key)
-    client.sendall(enc_session_key)
-
     # SEND FILE DATA TO SERVER
     while True:
         data_bytes = file.read()
@@ -55,7 +42,7 @@ def main():
             withLibary(client, data_bytes)
 
         elif int(MODE_ENCRYPTION) == 2:
-            withoutLibary(client, data_bytes, session_key)
+            withoutLibary(client, data_bytes)
 
         else:
             print("Choose Method Encryption")
@@ -69,9 +56,8 @@ def main():
     # DISCONNECT FROM SERVER
     client.close()
 
-def withoutLibary(client, data_bytes, session_key):
-    data_enc = aes.encrypt_ecb(data_bytes, session_key)
-    client.sendall(data_enc)
+def withoutLibary(client, data_bytes):
+    client.sendall(data_bytes)
 
 
 def withLibary(client, data_bytes):
