@@ -72,7 +72,6 @@ class AES:
         pad = bytes(blocksize - len(data) % blocksize)
         if len(pad) != 16:
             data += pad
-            print("aku ngepad")
         # each 16 byte do AES Encryption
         for i in range(len(data) // blocksize):
             plain = data[i * blocksize:i * blocksize + blocksize]
